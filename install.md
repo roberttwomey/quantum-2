@@ -9,6 +9,41 @@ This guide will help you set up and run the voice chat experience.
 - Internet connection
 - Microphone and speakers/headphones
 
+## Step 0: Install Homebrew (macOS only)
+
+If you're on macOS and don't have Homebrew installed, you'll need it for installing some dependencies.
+
+Check if Homebrew is already installed:
+
+```bash
+which brew
+```
+
+If this command returns nothing, install Homebrew by running:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Follow the on-screen instructions. After installation, you may need to add Homebrew to your PATH. The installer will provide instructions, but typically you'll need to run:
+
+```bash
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+For Intel Macs, the path may be `/usr/local/bin/brew` instead of `/opt/homebrew/bin/brew`. The installer will tell you which path to use.
+
+Verify the installation:
+
+```bash
+brew --version
+```
+
+You should see the Homebrew version number.
+
+**Note:** Homebrew is only needed on macOS. Linux and Windows users can skip this step.
+
 ## Step 1: Install Python Dependencies
 
 Create a virtual environment:
@@ -58,7 +93,7 @@ ollama serve
 In a new terminal window, pull the required model:
 
 ```bash
-ollama pull gemma3n:e2b
+ollama pull gemma3n:e4b
 ```
 
 Verify the model is available:
@@ -67,7 +102,7 @@ Verify the model is available:
 ollama list
 ```
 
-You should see `gemma3n:e2b` in the list.
+You should see `gemma3n:e4b` in the list.
 
 **Note:** Keep the `ollama serve` process running, or set it up to run as a background service.
 
@@ -138,25 +173,25 @@ Edit the `.env` file and add the following variables:
 
 ```bash
 # Ollama model name
-BFF_OLLAMA_MODEL=gemma3n:e2b
+OLLAMA_MODEL=gemma3n:e4b
 
 # Whisper model size (tiny, base, small, medium, large)
-BFF_WHISPER_MODEL=tiny
+WHISPER_MODEL=tiny
 
 # Path to Piper voice model
-BFF_PIPER_VOICE=piper/en_GB-alan-medium.onnx
+PIPER_VOICE=piper/en_GB-alan-medium.onnx
 
 # Optional: System prompt
-BFF_SYSTEM_PROMPT="you are SNAPPER a robot dog. you do not say woof, whir, tail wag. answer in 2 sentences or less."
+SYSTEM_PROMPT="you are SNAPPER a robot dog. you do not say woof, whir, tail wag. answer in 2 sentences or less."
 
 # Optional: Audio settings
-BFF_SAMPLE_RATE=16000
-BFF_ACTIVATION_THRESHOLD=0.03
-BFF_SILENCE_THRESHOLD=0.015
-BFF_SILENCE_DURATION=0.8
+SAMPLE_RATE=16000
+ACTIVATION_THRESHOLD=0.03
+SILENCE_THRESHOLD=0.015
+SILENCE_DURATION=0.8
 
 # Optional: Input device (leave empty to use system default)
-# BFF_INPUT_DEVICE_KEYWORD=
+# INPUT_DEVICE_KEYWORD=
 ```
 
 Adjust the paths and settings according to your setup.
@@ -194,7 +229,7 @@ venv\Scripts\activate  # On Windows
 python run-experience.py --piper-voice piper/en_GB-alan-medium.onnx
 ```
 
-If you've set `BFF_PIPER_VOICE` in your `.env` file, you can run:
+If you've set `PIPER_VOICE` in your `.env` file, you can run:
 
 ```bash
 python run-experience.py
@@ -243,7 +278,7 @@ python run-experience.py
 **Problem:** Slow transcription or out of memory errors
 
 **Solutions:**
-- Use a smaller Whisper model (set `BFF_WHISPER_MODEL=tiny` in `.env`)
+- Use a smaller Whisper model (set `WHISPER_MODEL=tiny` in `.env`)
 - On systems with GPU, faster-whisper should use it automatically
 - For CPU-only systems, consider using `tiny` or `base` models
 
@@ -266,7 +301,7 @@ python run-experience.py
 
 **Solution:**
 - Check system audio output settings
-- Try a different sample rate: `BFF_SAMPLE_RATE=22050` in `.env`
+- Try a different sample rate: `SAMPLE_RATE=22050` in `.env`
 - Verify audio output device: `python3 -c "import sounddevice as sd; print(sd.query_devices())"`
 
 ### Python/Package Issues
@@ -344,5 +379,5 @@ python run-experience.py --piper-voice piper/en_GB-alan-medium.onnx
 - The script uses `faster-whisper` for better performance than `openai-whisper`
 - On systems with GPU support, PyTorch and faster-whisper will use GPU acceleration automatically
 - Bluetooth headset support varies by platform (Linux has the most features)
-- The script creates log files in `~/bff/logs/` by default (configurable via `BFF_LOG_ROOT`)
+- The script creates log files in `~/bff/logs/` by default (configurable via `LOG_ROOT`)
 

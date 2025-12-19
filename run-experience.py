@@ -92,7 +92,7 @@ fix_user_paths()
 DEFAULT_SYSTEM_PROMPT = (
     os.environ.get(
         "SYSTEM_PROMPT",
-        "you are SNAPPER a robot dog. you do not say woof, whir, tail wag. answer in 2 sentences or less.",
+        "You are an interactive quantum computing system, Q, conducting a dialog with two human participants, A and B. Take them through a series of improvisational exercises that unfold key quantum phenomena.",
     )
 )
 
