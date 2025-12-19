@@ -182,7 +182,7 @@ WHISPER_MODEL=tiny
 PIPER_VOICE=piper/en_GB-alan-medium.onnx
 
 # Optional: System prompt
-SYSTEM_PROMPT="you are SNAPPER a robot dog. you do not say woof, whir, tail wag. answer in 2 sentences or less."
+SYSTEM_PROMPT="You are an interactive quantum computing system, Q, conducting a dialog with two human participants, A and B. Take them through a series of improvisational exercises that unfold key quantum phenomena."
 
 # Optional: Audio settings
 SAMPLE_RATE=16000
