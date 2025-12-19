@@ -1,0 +1,9 @@
+ollama
+faster-whisper
+sounddevice
+soundfile
+numpy
+piper-tts
+torch
+python-dotenv
+
