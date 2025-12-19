@@ -92,7 +92,7 @@ fix_user_paths()
 DEFAULT_SYSTEM_PROMPT = (
     os.environ.get(
         "SYSTEM_PROMPT",
-        "You are an interactive quantum computing system, Q, conducting a dialog with two human participants, A and B. Take them through a series of improvisational exercises that unfold key quantum phenomena.",
+        "You are an interactive quantum computing system, Q, conducting a dialog with two human participants, A and B. Take them through a series of improvisational exercises that unfold key quantum phenomena. You also have the ability to control Bluetooth lights using the available tools when users request light control (turning lights on/off, adjusting brightness, setting colors).",
     )
 )
 
@@ -901,15 +901,157 @@ class SentenceAccumulator:
         self.buffer = ""
 
 
+# Bluetooth Light Control Functions (MCP-style tools for Ollama)
+# These functions follow the pattern from the reference repository
+
+def bluetooth_light_turn_on(device_name: str | None = None) -> str:
+    """
+    Turn on a Bluetooth light.
+
+    Args:
+        device_name: Name or identifier of the Bluetooth light device. If None, controls the default device.
+
+    Returns:
+        str: Status message indicating success or failure.
+    """
+    try:
+        # TODO: Replace with actual Bluetooth light control implementation
+        # Example using bleak or specific library:
+        # from bleak import BleakClient
+        # async with BleakClient(device_address) as client:
+        #     await client.write_gatt_char(characteristic_uuid, on_command)
+        
+        device_str = f" '{device_name}'" if device_name else ""
+        result = f"Bluetooth light{device_str} turned on successfully."
+        print(f"[Bluetooth Light] {result}", file=sys.stderr)
+        return result
+    except Exception as e:
+        error_msg = f"Failed to turn on Bluetooth light{device_str}: {str(e)}"
+        print(f"[Bluetooth Light Error] {error_msg}", file=sys.stderr)
+        return error_msg
+
+
+def bluetooth_light_turn_off(device_name: str | None = None) -> str:
+    """
+    Turn off a Bluetooth light.
+
+    Args:
+        device_name: Name or identifier of the Bluetooth light device. If None, controls the default device.
+
+    Returns:
+        str: Status message indicating success or failure.
+    """
+    try:
+        # TODO: Replace with actual Bluetooth light control implementation
+        device_str = f" '{device_name}'" if device_name else ""
+        result = f"Bluetooth light{device_str} turned off successfully."
+        print(f"[Bluetooth Light] {result}", file=sys.stderr)
+        return result
+    except Exception as e:
+        error_msg = f"Failed to turn off Bluetooth light{device_str}: {str(e)}"
+        print(f"[Bluetooth Light Error] {error_msg}", file=sys.stderr)
+        return error_msg
+
+
+def bluetooth_light_set_brightness(brightness: int, device_name: str | None = None) -> str:
+    """
+    Set the brightness of a Bluetooth light.
+
+    Args:
+        brightness: Brightness level from 0 to 100 (0 is off, 100 is maximum brightness).
+        device_name: Name or identifier of the Bluetooth light device. If None, controls the default device.
+
+    Returns:
+        str: Status message indicating success or failure.
+    """
+    try:
+        # Clamp brightness to valid range
+        brightness = max(0, min(100, brightness))
+        
+        # TODO: Replace with actual Bluetooth light control implementation
+        device_str = f" '{device_name}'" if device_name else ""
+        result = f"Bluetooth light{device_str} brightness set to {brightness}%."
+        print(f"[Bluetooth Light] {result}", file=sys.stderr)
+        return result
+    except Exception as e:
+        error_msg = f"Failed to set brightness for Bluetooth light{device_str}: {str(e)}"
+        print(f"[Bluetooth Light Error] {error_msg}", file=sys.stderr)
+        return error_msg
+
+
+def bluetooth_light_set_color(red: int, green: int, blue: int, device_name: str | None = None) -> str:
+    """
+    Set the color of a Bluetooth light using RGB values.
+
+    Args:
+        red: Red component value from 0 to 255.
+        green: Green component value from 0 to 255.
+        blue: Blue component value from 0 to 255.
+        device_name: Name or identifier of the Bluetooth light device. If None, controls the default device.
+
+    Returns:
+        str: Status message indicating success or failure.
+    """
+    try:
+        # Clamp RGB values to valid range
+        red = max(0, min(255, red))
+        green = max(0, min(255, green))
+        blue = max(0, min(255, blue))
+        
+        # TODO: Replace with actual Bluetooth light control implementation
+        device_str = f" '{device_name}'" if device_name else ""
+        result = f"Bluetooth light{device_str} color set to RGB({red}, {green}, {blue})."
+        print(f"[Bluetooth Light] {result}", file=sys.stderr)
+        return result
+    except Exception as e:
+        error_msg = f"Failed to set color for Bluetooth light{device_str}: {str(e)}"
+        print(f"[Bluetooth Light Error] {error_msg}", file=sys.stderr)
+        return error_msg
+
+
+def bluetooth_light_list_devices() -> str:
+    """
+    List available Bluetooth light devices.
+
+    Returns:
+        str: List of available Bluetooth light devices.
+    """
+    try:
+        # TODO: Replace with actual Bluetooth device scanning
+        # Example using bleak:
+        # from bleak import BleakScanner
+        # devices = await BleakScanner.discover()
+        # Filter for light devices...
+        
+        result = "Available Bluetooth light devices:\n- Default Light (example device)"
+        print(f"[Bluetooth Light] {result}", file=sys.stderr)
+        return result
+    except Exception as e:
+        error_msg = f"Failed to list Bluetooth light devices: {str(e)}"
+        print(f"[Bluetooth Light Error] {error_msg}", file=sys.stderr)
+        return error_msg
+
+
+# Map tool names to functions for execution
+BLUETOOTH_LIGHT_TOOLS = {
+    "bluetooth_light_turn_on": bluetooth_light_turn_on,
+    "bluetooth_light_turn_off": bluetooth_light_turn_off,
+    "bluetooth_light_set_brightness": bluetooth_light_set_brightness,
+    "bluetooth_light_set_color": bluetooth_light_set_color,
+    "bluetooth_light_list_devices": bluetooth_light_list_devices,
+}
+
+
 def query_ollama_streaming(
     model_name: str,
     messages: list[dict[str, str]],
     interruptable: bool = True,
     stop_event: threading.Event | None = None,
     options: dict[str, Any] | None = None,
+    tools: list[Callable] | None = None,
 ) -> Iterable[str]:
     """
-    Yields complete sentences from Ollama.
+    Yields complete sentences from Ollama. Handles tool calls if tools are provided.
     """
     client = ollama.Client()
     
@@ -917,10 +1059,14 @@ def query_ollama_streaming(
     user_content = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "...")
     print(f"Querying Ollama '{model_name}': {user_content[:60]}...", file=sys.stderr)
 
+    # Prepare tools list
+    tools_list = list(tools) if tools else []
+
     try:
         stream = client.chat(
             model=model_name,
             messages=messages,
+            tools=tools_list if tools_list else None,
             stream=True,
             keep_alive=-1,
             options=options or {
@@ -936,25 +1082,101 @@ def query_ollama_streaming(
         return
 
     accumulator = SentenceAccumulator()
+    full_response_content = ""
+    collected_tool_calls = []
+    last_chunk = None
 
     for chunk in stream:
         if stop_event and stop_event.is_set():
             # print("Ollama query interrupted.", file=sys.stderr)
             return
 
-        content = ""
-        # Extract content from various chunk formats
-        if isinstance(chunk, dict):
-            content = chunk.get("message", {}).get("content", "")
-        else:
-             # Object access
-            msg = getattr(chunk, "message", None)
-            if msg:
-                content = getattr(msg, "content", "")
+        last_chunk = chunk
         
+        # Handle chunk - can be dict or object
+        if isinstance(chunk, dict):
+            chunk_msg = chunk.get("message", {})
+            content = chunk_msg.get("content", "")
+        else:
+            msg = getattr(chunk, "message", None)
+            content = getattr(msg, "content", "") if msg else ""
+
+        # Accumulate content
         if content:
+            full_response_content += content
             for sentence in accumulator.add(content):
                 yield sentence
+
+    # After streaming completes, check for tool calls in the final message
+    if last_chunk:
+        try:
+            if isinstance(last_chunk, dict):
+                chunk_msg = last_chunk.get("message", {})
+                tool_calls = chunk_msg.get("tool_calls", [])
+            else:
+                msg = getattr(last_chunk, "message", None)
+                tool_calls = getattr(msg, "tool_calls", []) if msg and hasattr(msg, "tool_calls") else []
+            
+            # Process tool calls
+            for tool_call in tool_calls:
+                if isinstance(tool_call, dict):
+                    func_obj = tool_call.get("function", {})
+                    func_name = func_obj.get("name", "")
+                    func_args_str = func_obj.get("arguments", "{}")
+                else:
+                    func_obj = getattr(tool_call, "function", None)
+                    func_name = getattr(func_obj, "name", "") if func_obj else ""
+                    func_args_str = getattr(func_obj, "arguments", "{}") if func_obj else "{}"
+                
+                if func_name:
+                    try:
+                        func_args = json.loads(func_args_str) if isinstance(func_args_str, str) else (func_args_str if func_args_str else {})
+                    except json.JSONDecodeError:
+                        func_args = {}
+                    
+                    collected_tool_calls.append((func_name, func_args))
+        except Exception as e:
+            print(f"[Tool Call Parsing Error] {e}", file=sys.stderr)
+
+    # Handle tool calls after streaming completes
+    if collected_tool_calls:
+        # Execute tool calls and add results to messages
+        for func_name, func_args in collected_tool_calls:
+            try:
+                if func_name in BLUETOOTH_LIGHT_TOOLS:
+                    func = BLUETOOTH_LIGHT_TOOLS[func_name]
+                    # Call the function with arguments
+                    result = func(**func_args) if func_args else func()
+                    
+                    # Add tool result to messages for next turn
+                    tool_message = {
+                        "role": "tool",
+                        "name": func_name,
+                        "content": result,
+                    }
+                    messages.append(tool_message)
+                    
+                    # Also yield the result as text for immediate feedback
+                    yield f"Executed {func_name}: {result}"
+                else:
+                    error_msg = f"Unknown tool: {func_name}"
+                    print(f"[Tool Error] {error_msg}", file=sys.stderr)
+                    messages.append({
+                        "role": "tool",
+                        "name": func_name,
+                        "content": error_msg,
+                    })
+                    yield f"Error: {error_msg}"
+                
+            except Exception as e:
+                error_msg = f"Error executing tool {func_name}: {str(e)}"
+                print(f"[Tool Error] {error_msg}", file=sys.stderr)
+                messages.append({
+                    "role": "tool",
+                    "name": func_name,
+                    "content": error_msg,
+                })
+                yield f"Error: {error_msg}"
     
     for sentence in accumulator.flush():
         yield sentence
@@ -1479,6 +1701,9 @@ def run_conversation(config: ConversationConfig) -> None:
         full_initial_text = ""
         prev_sentence_time = time.perf_counter()
         
+        # Get list of Bluetooth light control tools
+        bluetooth_tools = list(BLUETOOTH_LIGHT_TOOLS.values())
+        
         for sentence in query_ollama_streaming(
             config.ollama_model,
             messages,
@@ -1490,7 +1715,8 @@ def run_conversation(config: ConversationConfig) -> None:
                 "top_k": config.ollama_top_k,
                 "num_predict": config.ollama_num_predict,
                 "num_ctx": config.ollama_num_ctx,
-            }
+            },
+            tools=bluetooth_tools,
         ):
             current_time = time.perf_counter()
             elapsed = current_time - prev_sentence_time
@@ -1693,6 +1919,9 @@ def run_conversation(config: ConversationConfig) -> None:
             # Track timing for each sentence
             prev_sentence_time = time.perf_counter()
             
+            # Get list of Bluetooth light control tools
+            bluetooth_tools = list(BLUETOOTH_LIGHT_TOOLS.values())
+            
             for sentence in query_ollama_streaming(
                 config.ollama_model, 
                 messages,
@@ -1704,7 +1933,8 @@ def run_conversation(config: ConversationConfig) -> None:
                     "top_k": config.ollama_top_k,
                     "num_predict": config.ollama_num_predict,
                     "num_ctx": config.ollama_num_ctx,
-                }
+                },
+                tools=bluetooth_tools,
             ):
                 if check_interrupt():
                     interrupted = True
