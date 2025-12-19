@@ -1432,9 +1432,11 @@ def run_conversation(config: ConversationConfig) -> None:
         tts_worker.start()
 
         # Announce readiness
-        print("Ready to chat...", file=sys.stderr)
+        # print("Ready to chat...", file=sys.stderr)
         
-        startup_text = "I am connected and ready to chat."
+        # startup_text = "I am connected and ready to chat."
+        print("Let's begin...", file=sys.stderr)
+        startup_text = "Let's begin."
         # if LAST_HEADSET_NAME:
         #      # Clean up name for TTS? "OpenRun Pro 2 by Shokz" is fine.
         #      startup_text = f"I am connected to the {LAST_HEADSET_NAME} and ready to chat."
@@ -1448,6 +1450,105 @@ def run_conversation(config: ConversationConfig) -> None:
         # Clear interrupt before playing startup sound
         playback_interrupt.clear()
         play_audio(startup_audio, playback_interrupt, interruptable=False)
+
+        # Generate and play the first assistant message to start the conversation
+        print("Generating initial greeting...", file=sys.stderr)
+        
+        # Create a TTS worker for the initial message
+        initial_tts_worker = TTSWorker(piper_voice, config.sample_rate)
+        initial_tts_worker.start()
+        current_tts_worker = initial_tts_worker
+        
+        abort_event = threading.Event()
+        current_abort_event = abort_event
+        
+        # Start playback thread for initial message
+        tts_sample_rate = initial_tts_worker.voice.config.sample_rate if initial_tts_worker.voice else config.sample_rate
+        playback_interrupt.clear()
+        initial_response_audio_path = session_dir / "turn-000-initial-response.wav"
+        
+        initial_playback_thread = threading.Thread(
+            target=play_audio_stream,
+            args=(initial_tts_worker.audio_queue, tts_sample_rate, playback_interrupt, config.interruptable, initial_response_audio_path),
+            daemon=True
+        )
+        current_playback_thread = initial_playback_thread
+        initial_playback_thread.start()
+        
+        # Generate initial assistant message
+        full_initial_text = ""
+        prev_sentence_time = time.perf_counter()
+        
+        for sentence in query_ollama_streaming(
+            config.ollama_model,
+            messages,
+            interruptable=config.interruptable,
+            stop_event=abort_event,
+            options={
+                "temperature": config.ollama_temperature,
+                "top_p": config.ollama_top_p,
+                "top_k": config.ollama_top_k,
+                "num_predict": config.ollama_num_predict,
+                "num_ctx": config.ollama_num_ctx,
+            }
+        ):
+            current_time = time.perf_counter()
+            elapsed = current_time - prev_sentence_time
+            prev_sentence_time = current_time
+            
+            print(f"\nAssistant: {sentence} ({elapsed:.2f}s)", flush=True)
+            full_initial_text += sentence + " "
+            
+            # Clean the sentence for TTS
+            cleaned_sentence = re.sub(r'[\*#_`~]', '', sentence)
+            cleaned_sentence = re.sub(r'\([^\)]*\)', '', cleaned_sentence)
+            cleaned_sentence = re.sub(r'\[[^\]]*\]', '', cleaned_sentence)
+            cleaned_sentence = re.sub(r'\s+', ' ', cleaned_sentence).strip()
+            
+            if cleaned_sentence:
+                initial_tts_worker.put_text(cleaned_sentence)
+        
+        initial_tts_worker.put_text(None)  # End of input
+        print()  # Newline after response
+        
+        # Check if generation was interrupted
+        initial_interrupted = abort_event.is_set() if abort_event else False
+        
+        # Wait for playback to finish
+        while initial_playback_thread.is_alive():
+            if config.interruptable and playback_interrupt.is_set():
+                initial_tts_worker.flush()
+                initial_tts_worker.stop()
+                initial_interrupted = True
+                break
+            initial_playback_thread.join(timeout=0.1)
+        
+        # Only add the initial assistant message if it wasn't interrupted
+        if not initial_interrupted and full_initial_text.strip():
+            messages.append({"role": "assistant", "content": full_initial_text.strip()})
+            
+            append_log_line(
+                log_file,
+                {
+                    "type": "assistant",
+                    "turn": 0,
+                    "text": full_initial_text.strip(),
+                    "audio_path": str(initial_response_audio_path),
+                },
+            )
+        elif initial_interrupted:
+            append_log_line(
+                log_file,
+                {
+                    "type": "assistant_cancelled",
+                    "turn": 0,
+                },
+            )
+        
+        initial_tts_worker.stop()
+        current_tts_worker = None
+        current_playback_thread = None
+        current_abort_event = None
 
         turn = 1
         while True:

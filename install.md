@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide will help you set up and run the voice chat experience.
+This guide will help you set up and run the QT voice chat experience.
 
 ## Prerequisites
 
